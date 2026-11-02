@@ -69,6 +69,14 @@ O benefício só é confirmado quando a nova leitura retorna `CONFIRMED` ou `CON
 
 `codearts_credentials.json` contém AK/SK/STS, refresh token, material PKCE e chave privada DPoP. `codearts_welfare_ledger.json` contém idempotência e estado de limite local. Ambos são ignorados pelo Git. Não publique esses arquivos nem segredos em uma issue.
 
+## Limites de uso e redistribuição
+
+As versões oficiais deste projeto são gratuitas, incluindo o repositório, os scripts, as instruções de implantação e os Releases.
+
+Sem autorização escrita explícita do autor, não empacote o projeto como recurso pago, edição interna ou exclusiva, benefício de assinatura, curso pago, implantação paga ou serviço de atualização; não o republique em contas, grupos ou canais sem relação para gerar tráfego ou captar usuários; não remova avisos de autoria e direitos autorais nem reivindique o trabalho como seu; não use o nome, avatar, QR codes ou nome do projeto para sugerir endosso oficial.
+
+Em caso de violação, o autor pode solicitar a remoção do conteúdo e pode pausar atualizações, arquivar ou excluir o repositório. Consulte [NOTICE.md](../NOTICE.md) para as regras completas.
+
 ## Links
 
 - [Releases](https://github.com/L0NE-6/CodeArts-Daily/releases)
