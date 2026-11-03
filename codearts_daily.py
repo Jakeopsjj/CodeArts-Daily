@@ -319,6 +319,7 @@ def normalize_credential(raw):
     pkce = oauth.get("pkce_pair") if isinstance(oauth.get("pkce_pair"), dict) else {}
     dpop = oauth.get("dpop_key_pair") if isinstance(oauth.get("dpop_key_pair"), dict) else {}
     jwk = dpop.get("private_key_jwk") if isinstance(dpop.get("private_key_jwk"), dict) else {}
+    oauth_client_id = oauth.get("client_id")
     return {
         "access_key_id": first_text(raw.get("access_key_id"), raw.get("accessKeyId"), raw.get("ak")),
         "secret_access_key": first_text(raw.get("secret_access_key"), raw.get("secretAccessKey"), raw.get("sk")),
@@ -329,8 +330,14 @@ def normalize_credential(raw):
         "user_name": first_text(raw.get("user_name"), raw.get("userName")),
         "code_verifier": first_text(pkce.get("code_verifier"), raw.get("code_verifier")),
         "dpop_jwk": jwk,
+        "client_id": oauth_client_id.strip() if isinstance(oauth_client_id, str) and oauth_client_id.strip() else "",
         "note": first_text(raw.get("note")),
     }
+
+
+def client_id_of(credential):
+    value = credential.get("client_id")
+    return value.strip() if isinstance(value, str) and value.strip() else CLIENT_ID
 
 
 def parse_accounts(raw):
@@ -399,7 +406,7 @@ def apply_store(credential):
         return False
     for key in ("access_key_id", "secret_access_key", "security_token", "expiration",
                 "refresh_token", "domain_id", "user_name", "code_verifier",
-                "terminal", "terminal_reason"):
+                "client_id", "terminal", "terminal_reason"):
         if saved.get(key):
             credential[key] = saved[key]
     if isinstance(saved.get("dpop_jwk"), dict) and saved["dpop_jwk"]:
@@ -412,7 +419,7 @@ def persist(credential):
     store[identity_of(credential)] = {key: credential.get(key) for key in (
         "access_key_id", "secret_access_key", "security_token", "expiration",
         "refresh_token", "domain_id", "user_name", "code_verifier",
-        "terminal", "terminal_reason")}
+        "client_id", "terminal", "terminal_reason")}
     store[identity_of(credential)]["dpop_jwk"] = credential.get("dpop_jwk") or {}
     store[identity_of(credential)]["at"] = int(time.time())
     save_store(store)
@@ -504,7 +511,7 @@ def refresh_credential(credential):
         raise RuntimeError("凭据缺少 DPoP 私钥（oauth_context.dpop_key_pair.private_key_jwk）")
     proof = dpop_proof(jwk, "POST", TOKEN_URL)
     form = {
-        "client_id": CLIENT_ID,
+        "client_id": client_id_of(credential),
         "code_verifier": credential["code_verifier"],
         "grant_type": "refresh_token",
         "refresh_token": credential["refresh_token"],
@@ -549,6 +556,8 @@ def refresh_credential(credential):
         raise RuntimeError("令牌响应缺少 AK/SK/STS")
     for key in ("domain_id", "user_name", "code_verifier", "dpop_jwk", "note"):
         fresh[key] = credential.get(key, "" if key != "dpop_jwk" else {})
+    if isinstance(credential.get("client_id"), str) and credential["client_id"].strip():
+        fresh["client_id"] = credential["client_id"].strip()
     try:
         persist(fresh)
     except Exception as error:

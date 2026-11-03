@@ -146,6 +146,8 @@ python codearts_login.py --note 主号
 
 JSON 包含 refresh_token、PKCE 材料与 DPoP 私钥，请按密码级别保管。
 
+凭据可带可选字段 `oauth_context.client_id`：续期时优先使用其中的非空字符串；缺省、空串或非字符串自动回退 `vscode-codebot`。旧凭据无需迁移。
+
 <a id="environment"></a>
 
 ## 🔧 环境变量与参数
@@ -216,7 +218,7 @@ JSON 包含 refresh_token、PKCE 材料与 DPoP 私钥，请按密码级别保�
 
 ## 📦 版本与发布
 
-当前 CHANGELOG 记录最新版本为 `v1.0.5`（2026-10-30）。每个版本单独发布 Release，附完整包、脚本单文件与 `SHA256SUMS.txt`。下载页：[Releases](https://github.com/L0NE-6/CodeArts-Daily/releases)。
+当前 CHANGELOG 记录最新版本为 `v1.0.6`（2026-11-04）。每个版本单独发布 Release，附完整包、脚本单文件与 `SHA256SUMS.txt`。下载页：[Releases](https://github.com/L0NE-6/CodeArts-Daily/releases)。
 
 ## ⚠️ 说明
 

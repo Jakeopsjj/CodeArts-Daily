@@ -1,6 +1,7 @@
 import ast
 import json
 import os
+import time
 import unittest
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from pathlib import Path
 SOURCE_PATH = Path(__file__).resolve().parents[1] / "codearts_daily.py"
 SOURCE = SOURCE_PATH.read_text(encoding="utf-8")
 TREE = ast.parse(SOURCE)
+MISSING = object()
 FUNCTIONS = {
     node.name: node
     for node in TREE.body
@@ -160,7 +162,7 @@ class CodeArtsCoreTests(unittest.TestCase):
         }
 
         module = load_functions(
-            "refresh_credential", "TerminalCredentialError",
+            "refresh_credential", "TerminalCredentialError", "client_id_of",
             dpop_proof=lambda *args: "proof",
             request=lambda *args, **kwargs: FakeResponse(200, {
                 "credentials": {
@@ -187,7 +189,7 @@ class CodeArtsCoreTests(unittest.TestCase):
 
     def _refresh_module(self, response, persisted):
         return load_functions(
-            "refresh_credential", "TerminalCredentialError",
+            "refresh_credential", "TerminalCredentialError", "client_id_of",
             "refresh_token_terminal", "mark_terminal", "first_text",
             dpop_proof=lambda *args: "proof",
             request=lambda *args, **kwargs: response,
@@ -198,6 +200,104 @@ class CodeArtsCoreTests(unittest.TestCase):
             TOKEN_URL="https://example.test/token",
             CLIENT_ID="client",
         )
+
+    def _refresh_with_client_id(self, client_id_marker):
+        captured = {}
+        persisted = []
+
+        def request(method, url, headers=None, data=None, timeout=20):
+            captured["form"] = dict(data)
+            return FakeResponse(200, {
+                "credentials": {
+                    "access_key_id": "new-ak",
+                    "secret_access_key": "new-sk",
+                    "security_token": "new-sts",
+                    "refresh_token": "new-rt",
+                    "expiration": "2026-10-29T12:00:00Z",
+                }
+            })
+
+        module = load_functions(
+            "refresh_credential", "TerminalCredentialError", "client_id_of",
+            dpop_proof=lambda *args: "proof",
+            request=request,
+            json_of=lambda response: response.payload,
+            first_text=lambda *values: next(
+                (value.strip() for value in values
+                 if isinstance(value, str) and value.strip()), ""),
+            persist=lambda credential: persisted.append(dict(credential)),
+            log=lambda message: None,
+            TOKEN_URL="https://example.test/token",
+            CLIENT_ID="vscode-codebot",
+        )
+        credential = {
+            "access_key_id": "old-ak", "secret_access_key": "old-sk",
+            "security_token": "old-sts", "refresh_token": "old-rt",
+            "code_verifier": "verifier", "dpop_jwk": {"d": "private"},
+        }
+        if client_id_marker is not MISSING:
+            credential["client_id"] = client_id_marker
+        module["refresh_credential"](credential)
+        return captured["form"]["client_id"], persisted[-1]
+
+    def test_normalize_credential_reads_nested_oauth_client_id(self):
+        module = load_functions(
+            "first_text", "normalize_credential",
+            CLIENT_ID="vscode-codebot",
+        )
+        credential = module["normalize_credential"]({
+            "access_key_id": "ak",
+            "secret_access_key": "sk",
+            "oauth_context": {"client_id": "  codearts-agent  "},
+        })
+        self.assertEqual("codearts-agent", credential["client_id"])
+
+    def test_normalize_credential_ignores_empty_or_non_string_client_id(self):
+        module = load_functions(
+            "first_text", "normalize_credential",
+            CLIENT_ID="vscode-codebot",
+        )
+        for value in ("", "   ", None, 42, [], {}):
+            with self.subTest(value=value):
+                credential = module["normalize_credential"]({
+                    "access_key_id": "ak",
+                    "secret_access_key": "sk",
+                    "oauth_context": {"client_id": value},
+                })
+                self.assertEqual("", credential["client_id"])
+
+    def test_refresh_uses_default_client_id_for_legacy_credential(self):
+        client_id, fresh = self._refresh_with_client_id(MISSING)
+        self.assertEqual("vscode-codebot", client_id)
+        self.assertNotIn("client_id", fresh)
+
+    def test_refresh_uses_explicit_client_id_and_persists_it(self):
+        client_id, fresh = self._refresh_with_client_id("codearts-agent")
+        self.assertEqual("codearts-agent", client_id)
+        self.assertEqual("codearts-agent", fresh["client_id"])
+
+    def test_refresh_falls_back_for_empty_or_non_string_client_id(self):
+        for value in ("", "   ", None, 42, [], {}):
+            with self.subTest(value=value):
+                client_id, _ = self._refresh_with_client_id(value)
+                self.assertEqual("vscode-codebot", client_id)
+
+    def test_client_id_survives_store_and_restore(self):
+        saved = {}
+        module = load_functions(
+            "apply_store", "persist",
+            identity_of=lambda credential: "account-1",
+            load_store=lambda: saved,
+            save_store=lambda store: saved.update(store),
+            time=time,
+        )
+        module["persist"]({
+            "access_key_id": "ak", "secret_access_key": "sk",
+            "client_id": "codearts-agent",
+        })
+        credential = {"access_key_id": "ak", "secret_access_key": "sk"}
+        self.assertTrue(module["apply_store"](credential))
+        self.assertEqual("codearts-agent", credential["client_id"])
 
     def test_sts5_1806_error_code_is_terminal(self):
         persisted = []
