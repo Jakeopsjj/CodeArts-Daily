@@ -1,0 +1,37 @@
+name: Maintenance (sync + keepalive)
+on:
+  schedule:
+    - cron: "0 4 * * *"   # daily 12:00 Beijing
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync fork with upstream
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/merge-upstream" \
+            -d '{"branch":"main"}' && echo "synced with upstream" || echo "up-to-date or conflict; skipped"
+  keepalive:
+    if: always()
+    needs: [sync-upstream]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Empty commit only if quiet >= 30 days
+        run: |
+          git config user.name "keepalive-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          LAST=$(git log -1 --format=%ct)
+          NOW=$(date +%s)
+          AGE=$(( (NOW - LAST) / 86400 ))
+          if [ "$AGE" -ge 30 ]; then
+            git commit --allow-empty -m "chore: keepalive [skip ci]"
+            git push
+          else
+            echo "recent activity ($AGE days); skip keepalive"
+          fi
