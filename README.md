@@ -6,7 +6,7 @@
 
 **CodeArts 每日福利与新人注册礼领取，以回读确认代替“请求已受理”的假成功。**
 
-> 当前版本：**v1.0.6**（2026-11-03） · 最新更新：按凭据保留 OAuth client_id，非默认客户端续期不再丢失
+> 当前版本：**v1.0.6**（2026-11-04） · 最新更新：按凭据保留 OAuth client_id，非默认客户端续期不再丢失
 
 [简体中文](README.md) · [English](docs/README.en.md) · [繁體中文](docs/README.zh-Hant.md) · [日本語](docs/README.ja.md) · [한국어](docs/README.ko.md) · [Português (BR)](docs/README.pt-BR.md)
 
