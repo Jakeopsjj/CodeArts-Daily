@@ -33,6 +33,14 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
+      - name: Restore credential store
+        uses: actions/cache/restore@v4
+        with:
+          path: codearts_credentials.json
+          key: codearts-store-${{ github.run_id }}
+          restore-keys: |
+            codearts-store-
+
       - name: Run CodeArts Daily
         env:
           CODEARTS_CREDENTIALS: ${{ secrets.CODEARTS_CREDENTIALS }}
@@ -42,4 +50,11 @@ jobs:
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
           DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
         run: python codearts_daily.py
+
+      - name: Save credential store
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: codearts_credentials.json
+          key: codearts-store-${{ github.run_id }}
 
