@@ -36,7 +36,9 @@ jobs:
       - name: Restore credential store
         uses: actions/cache/restore@v4
         with:
-          path: codearts_credentials.json
+          path: |
+            codearts_credentials.json
+            codearts_welfare_ledger.json
           key: codearts-store-${{ github.run_id }}
           restore-keys: |
             codearts-store-
@@ -55,6 +57,8 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: codearts_credentials.json
+          path: |
+            codearts_credentials.json
+            codearts_welfare_ledger.json
           key: codearts-store-${{ github.run_id }}
 
