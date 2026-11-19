@@ -775,40 +775,36 @@ def has_work(campaign):
 
 
 def claim_one(credential, campaign, idempotent_key):
-    """领取一笔并返回 confirm 所需的 userBenefitId。"""
+    """领取一笔；返回 userBenefitId（仅记账用，confirm 已改为按 campaignId 确认，可为空）。"""
     data = welfare_request(credential, "POST", CLAIM_PATH,
                            {"campaignId": campaign["id"], "idempotentKey": idempotent_key,
                             "channel": OPS_CHANNEL})
     if not isinstance(data, dict):
-        raise RuntimeError("领取响应缺少对象数据，未进入确认阶段")
+        # 2026-11 上游起部分场景 claim 只回 code:0 不回 data，此时直接走 confirm
+        return ""
     returned = first_text(data.get("campaignId"), data.get("campaign_id"))
     if returned and returned != campaign["key"]:
         raise RuntimeError("领取响应活动 ID 不匹配（要 %s，回 %s），未进入确认阶段"
                            % (campaign["key"], returned))
-    benefit_id = first_text(data.get("userBenefitId"), data.get("user_benefit_id"),
-                            data.get("benefitId"), data.get("benefit_id"), data.get("id"))
-    if not benefit_id:
-        raise RuntimeError("领取响应缺少 userBenefitId，无法安全确认到账")
-    return benefit_id
+    return first_text(data.get("userBenefitId"), data.get("user_benefit_id"),
+                      data.get("benefitId"), data.get("benefit_id"))
 
 
-def confirm_one(credential, user_benefit_id):
-    """按最新桌面客户端协议确认领取记录。"""
-    return welfare_request(credential, "POST", CONFIRM_PATH,
-                           {"userBenefitId": user_benefit_id})
+def confirm_one(credential, campaign_id):
+    """确认领取记录。
+
+    2026-11 上游改了 /v1/ops/confirm 契约：只接受 campaignId（整数）。
+    旧版发 userBenefitId 会被判 400 PROMPTCENTER.00000001 "campaignId : 参数无效"；
+    带上 channel / userBenefitId 反而回 HDN.1000。实测 2026-11-19。
+    """
+    return welfare_request(credential, "POST", CONFIRM_PATH, {"campaignId": campaign_id})
 
 
 def confirm_campaign(credential, campaign, progress):
-    """确认一条已领取记录；缺少 userBenefitId 时拒绝猜测或重放 claim。"""
-    benefit_id = first_text(progress.get("userBenefitId"))
-    if not benefit_id:
-        raise RuntimeError(
-            "%s 已领取但台账缺少 userBenefitId；为避免重复领取，"
-            "本次不重放 claim，也不会用 campaignId 冒充确认 ID"
-            % display_title(campaign))
-    confirm_one(credential, benefit_id)
+    """确认一条已领取记录（按活动 ID 确认，不需要 userBenefitId）。"""
+    confirm_one(credential, campaign["id"])
     progress["confirmedRequested"] = True
-    return benefit_id
+    return first_text(progress.get("userBenefitId"))
 
 
 def do_checkin(credential):
@@ -869,7 +865,8 @@ def do_checkin(credential):
             persist_ledger(store, identity, ledger)
             benefit_id = claim_one(credential, item, progress["idempotentKey"])
             progress["claimed"] = True
-            progress["userBenefitId"] = benefit_id
+            if benefit_id:
+                progress["userBenefitId"] = benefit_id
             ledger["campaigns"][key] = progress
             persist_ledger(store, identity, ledger)
         if progress.get("claimed"):

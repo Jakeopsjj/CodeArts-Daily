@@ -81,7 +81,7 @@ GET  /v1/ops/delivery?channel=DESKTOP   # 回读 CONFIRMED / CONSUMED
 ```
 
 - 请求使用 `SDK-HMAC-SHA256` 签名，并按桌面客户端口径包含 `Host`。
-- 已领取但缺少 `userBenefitId` 时停止确认，不重放 claim、不拿 `campaignId` 冒充确认 ID。
+- 确认按 `campaignId` 提交（2026-11 上游新契约：confirm 只收 campaignId，旧版 `userBenefitId` 会被判 400 `campaignId : 参数无效`）。
 - HTTP 200 空 body 视为会话过期并进入终态；普通 401/403 仍有独立处理。
 - v2 本地台账可平滑迁移到 v3，已有幂等键继续复用。
 

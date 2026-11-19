@@ -1,3 +1,10 @@
+## 未发布
+
+- fix(confirm): 适配 2026-11 上游 /v1/ops/confirm 新契约——只接受 `{"campaignId": <int>}`；
+  旧版 `{"userBenefitId": ...}` 会被判 400 `PROMPTCENTER.00000001 campaignId : 参数无效`，
+  带 channel 或同时带 userBenefitId 会回 `HDN.1000`。实测 2026-11-19。
+- fix(claim): claim 响应没有 data / userBenefitId 时不再中止，直接进入 confirm（confirm 不再需要它）。
+
 # 更新日志
 
 ## v1.0.6（2026-11-04）
